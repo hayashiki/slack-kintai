@@ -8,11 +8,14 @@ const normalizePort = require('normalize-port');
 const port = normalizePort(process.env.PORT || '3000');
 const app = express();
 const users = require('./src/users');
+const async = require('async');
 
 const mongoose   = require('mongoose');
 const promise = mongoose.connect('mongodb://localhost/slack-kintai', {
   useMongoClient: true,
 });
+
+const POST_CHANNEL = "test-bot"
 
 // User model
 const User = require('./src/models/user');
@@ -20,10 +23,12 @@ const PaidHoliday = require('./src/models/paid_holiday');
 const bot = require('./src/lib/bot');
 
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: false }));
 
 // Slash Commands
 app.post('/slack/commands', (req, res) => {
   const { token, text, trigger_id, user_id } = req.body;
+  console.log(req.body);
   const resArray = text.split(" ");
 
 // todo params check
@@ -44,13 +49,23 @@ app.post('/slack/commands', (req, res) => {
 
         switch (slashAction){
           case 'create':
-            createPaidHoliday(currentUser.user.id, kintaiDay, next)
+            createPaidHoliday(currentUser.user.id, kintaiDay)
+            break;
+          case 'show':
+            PaidHoliday.find({ user_id: currentUser.user.id },{'_id':0, 'date': 1},
+              (err, res) => {
+                let kintai_list = "";
+                res.map( day => {
+                  kintai_list = test + day['date'] + "\n"
+                })
+                bot.postMessage(POST_CHANNEL, kintai_list);
+              }
+            )
             break;
           default:
             break;
         }
       },
-
     ], (err) => {
       return console.error(err)
     });
@@ -63,7 +78,7 @@ app.post('/slack/commands', (req, res) => {
 
 find_or_create_by = (user) => {
   if (User.find({ user_id: user.id })) {
-    console.log("skip")
+    console.log("find user")
   } else {
     console.log("create user")
     const newUser = new User();
@@ -72,16 +87,13 @@ find_or_create_by = (user) => {
   }
 }
 
-createPaidHoliday = (userId, date, callback) => {
+createPaidHoliday = (userId, date) => {
   const newPaidHoliday = new PaidHoliday();
   newPaidHoliday.user_id = userId
   newPaidHoliday.date = date
   newPaidHoliday.hour = 8
-  newPaidHoliday.save((err, newPaidHoliday) => {
-    if (err) console.log(err);
-    const web = new WebClient(process.env.SLACK_BOT_TOKEN)
-    web.chat.postMessage("test-bot", 'aaaa', callback);
-  });
+  newPaidHoliday.save();
+// todo callback post slack
 }
 
 
