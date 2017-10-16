@@ -16,14 +16,17 @@ const promise = mongoose.connect('mongodb://localhost/slack-kintai', {
 
 // User model
 const User = require('./src/models/user');
+const PaidHoliday = require('./src/models/paid_holiday');
+const bot = require('./src/lib/bot');
 
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
 
 // Slash Commands
 app.post('/slack/commands', (req, res) => {
   const { token, text, trigger_id, user_id } = req.body;
   const resArray = text.split(" ");
+
+// todo params check
   const slashAction = resArray[0]
   const kintaiDay = resArray[1]
 
@@ -32,23 +35,27 @@ app.post('/slack/commands', (req, res) => {
     console.log('Token valid');
     res.send('');
 
-    const fetchUser = new Promise((resolve, reject) => {
-      users.find(user_id).then((result) => {
-        console.log(`Find user: ${user_id} from slack`);
-        resolve(result.data.user);
-      }).catch((err) => { reject(err); });
-    });
+    async.waterfall([
+      next => {
+        bot.getUserInfo(user_id, next);
+      },
+      (currentUser, next) => {
+        console.log(currentUser)
+        find_or_create_by(currentUser);
 
-    fetchUser.then((user) => {
-      if (User.find({ user_id: user.id })) {
-        console.log("skip")
-      } else {
-        console.log("create user")
-        const newUser = new User();
-        newUser.user_id =  user.id;
-        newUser.save();
-      }
+        switch (slashAction){
+          case 'create':
+            // createPaidHoliday()
+            break;
+          default:
+            break;
+        }
+      },
+
+    ], (err) => {
+      return console.error(err)
     });
+    return;
   } else {
     console.error();('Token invalid');
     res.sendStatus(500);
