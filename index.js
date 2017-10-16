@@ -40,12 +40,11 @@ app.post('/slack/commands', (req, res) => {
         bot.getUserInfo(user_id, next);
       },
       (currentUser, next) => {
-        console.log(currentUser)
         find_or_create_by(currentUser);
 
         switch (slashAction){
           case 'create':
-            // createPaidHoliday()
+            createPaidHoliday(currentUser.user.id, kintaiDay, next)
             break;
           default:
             break;
@@ -61,6 +60,30 @@ app.post('/slack/commands', (req, res) => {
     res.sendStatus(500);
   }
 });
+
+find_or_create_by = (user) => {
+  if (User.find({ user_id: user.id })) {
+    console.log("skip")
+  } else {
+    console.log("create user")
+    const newUser = new User();
+    newUser.user_id =  user.id;
+    newUser.save();
+  }
+}
+
+createPaidHoliday = (userId, date, callback) => {
+  const newPaidHoliday = new PaidHoliday();
+  newPaidHoliday.user_id = userId
+  newPaidHoliday.date = date
+  newPaidHoliday.hour = 8
+  newPaidHoliday.save((err, newPaidHoliday) => {
+    if (err) console.log(err);
+    const web = new WebClient(process.env.SLACK_BOT_TOKEN)
+    web.chat.postMessage("test-bot", 'aaaa', callback);
+  });
+}
+
 
 http.createServer(app).listen(port, () => {
   console.log(`server listening on port ${port}`);
